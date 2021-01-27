@@ -1,5 +1,4 @@
 import re
-
 import nltk
 from nltk.corpus import stopwords
 stop_words = stopwords.words('english')
@@ -34,6 +33,9 @@ def to_lowercase(sample):
 def remove_punctuation(sample):
     """Remove punctuations, but kept '.' and '-'.
     :param sample: sample text to preprocessing :return: sample without punctuations"""
-    sample = re.sub(r'[^A-Za-z .-]+', '', sample)
-    return sample
+    reg = re.compile(r"[^\w\s.,]")
+    print("ccc")
+    print(reg.sub('', sample))
+    print("xxx")
+    return reg.sub('', sample)
 
