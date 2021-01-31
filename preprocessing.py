@@ -34,8 +34,5 @@ def remove_punctuation(sample):
     """Remove punctuations, but kept '.' and '-'.
     :param sample: sample text to preprocessing :return: sample without punctuations"""
     reg = re.compile(r"[^\w\s.,]")
-    print("ccc")
-    print(reg.sub('', sample))
-    print("xxx")
     return reg.sub('', sample)
 
