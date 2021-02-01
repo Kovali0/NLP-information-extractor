@@ -29,26 +29,20 @@ def train_tagger():
 
 def get_svo(sentence, subject):
     """
-    Create svo model.
+    Create svo model and based on that model get important sentences.
     :param sentence: sample sentence
     :param subject: main subject noun
-    :return: dictionary with svo
+    :return: list of important topic, picked in case of svo model
     """
-    subject_idx = next((i for i, v in enumerate(sentence) if v[0].lower() == subject), None)
-    print(subject_idx)
-    data = {'subject': subject}
-    print(len(sentence))
+    subject_idx = next((i for i, v in enumerate(sentence) if v[0] == subject), None)
     for i in range(subject_idx, len(sentence)):
         found_action = False
         for j, (token, tag) in enumerate(sentence[i+1:]):
             if tag in VERBS:
-                data['action'] = token
                 found_action = True
-            if tag in NOUNS and found_action == True:
-                data['object'] = token
-                data['phrase'] = sentence[i: i+j+2]
-                return data
-    return {}
+            if tag in NOUNS and found_action:
+                return sentence[i: i+j+2]
+    return []
 
 
 def topic_finder(document):
@@ -66,10 +60,10 @@ def topic_finder(document):
         sentences = [sentence for sentence in sentences if important_nouns[0].lower() in [word.lower() for word in sentence]]
         tagged_sentences = [trigram_tagger.tag(sent) for sent in sentences]
         important_nouns = document.find_topic()
-        svo_data = [get_svo(sentence, important_nouns[0].lower()) for sentence in tagged_sentences]
+        svo_data = [get_svo(sentence, important_nouns[0]) for sentence in tagged_sentences]
         for svo in svo_data:
             sentence = ''
-            for word in svo.get('phrase'):
+            for word in svo:
                 sentence += word[0] + ' '
             topics_list.append(sentence)
     except IndexError:
