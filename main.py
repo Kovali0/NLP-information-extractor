@@ -1,98 +1,81 @@
 import sys
-import re
+import pickle
 import nltk
 from PyQt5 import QtWidgets
 from MainWindow import Ui_MainWindow
 import preprocessing as pre
+from document import Document
 
 # Noun Part of Speech Tags used by NLTK
 NOUNS = ['NN', 'NNS', 'NNP', 'NNPS']
 VERBS = ['VB', 'VBG', 'VBD', 'VBN', 'VBP', 'VBZ']
 
 
-class Document:
+def train_tagger():
     """
-    Representation of processing document.
+    Create and train on brown and treebank corpuses, nltk simple tagger with 3 layers.
+    Layers: Unigram, Bigram and Trigram.
+    :return: trained trigram tagger object
     """
-    def __init__(self, text):
-        self.text = text
-        self.words = []
-        self.sentences = []
-        self.normalized_sample = []
-        self.bag_of_words = []
-        self.sample = ''
+    train_corpus = nltk.corpus.brown.tagged_sents()
+    train_corpus += nltk.corpus.treebank.tagged_sents()
+    layer0 = nltk.DefaultTagger('NN')
+    layer1 = nltk.UnigramTagger(train_corpus, backoff=layer0)
+    layer2 = nltk.BigramTagger(train_corpus, backoff=layer1)
+    trigram_tagger = nltk.TrigramTagger(train_corpus, backoff=layer2)
+    pickle.dump(trigram_tagger, open('trained_tagger.pkl', 'wb'))
+    return trigram_tagger
 
-    def change_document(self, new_text):
-        """Set new document text.
-        :param new_text: param for new text"""
-        self.text = new_text
-        self.sample = new_text
 
-    def full_preprocessing(self):
-        """General preprocessing on document sample. This method include:
-        remove punctuation ( . and , are kept), remove english stop words,
-        tokenize to sentences, words and list of tokenized sentences to words."""
-        self.text = pre.remove_punctuation(self.text)
-        self.text = pre.to_lowercase(self.text)
-        self.words = pre.tokenize_to_words(self.text)
-        self.words = pre.remove_stopwords(self.words)
-        self.text = ' '.join(self.words)
-        self.sentences = pre.tokenize_to_sentences(self.text)
-        self.normalized_sample = [pre.tokenize_to_words(sent) for sent in self.sentences]
-        return self.sentences
+def get_svo(sentence, subject):
+    """
+    Create svo model.
+    :param sentence: sample sentence
+    :param subject: main subject noun
+    :return: dictionary with svo
+    """
+    subject_idx = next((i for i, v in enumerate(sentence) if v[0].lower() == subject), None)
+    print(subject_idx)
+    data = {'subject': subject}
+    print(len(sentence))
+    for i in range(subject_idx, len(sentence)):
+        found_action = False
+        for j, (token, tag) in enumerate(sentence[i+1:]):
+            if tag in VERBS:
+                data['action'] = token
+                found_action = True
+            if tag in NOUNS and found_action == True:
+                data['object'] = token
+                data['phrase'] = sentence[i: i+j+2]
+                return data
+    return {}
 
-    def extract_phone_numbers(self):
-        """Extract all phone numbers (9 digits standard) from sample document.
-        :return: list of phone numbers"""
-        reg = re.compile(r"(\(\+\d{2}\)\s*\d{3}[-\.\s]??\d{3}|\d{3}[-\.\s]\d{3}[-\.\s]\d{3})")
-        return reg.findall(self.text)
 
-    def extract_emails(self):
-        """Extract all emails from sample document.
-        :return: list of emails"""
-        reg = re.compile(r"([\w\.-]+@\w+[.]\w{2,3})")
-        return reg.findall(self.text)
-
-    def create_bag_of_words(self):
-        """Returns a bag of words created by counting frequency distribution.
-        :return: list of emails"""
-        self.bag_of_words = nltk.FreqDist(self.words)
-        return self.bag_of_words
-
-    def find_topic(self):
-        """
-        Method for finding topic of document
-        :return: list of proposed topic
-        """
-        self.full_preprocessing()
-        return self.important_nouns()
-
-    def get_entities(self):
-        """Build named entities, by chunking nltk.
-        :return: list of entities"""
-        entities = []
-        sentences = pre.tokenize_to_sentences(self.sample)
-        sentences = [nltk.pos_tag(pre.tokenize_to_words(sent)) for sent in sentences]
-        for tagged_sentence in sentences:
-            for chunk in nltk.ne_chunk(tagged_sentence):
-                if type(chunk) == nltk.tree.Tree:
-                    entities.append(''.join([c[0] for c in chunk]))
-        return entities
-
-    def important_nouns(self):
-        """
-        Create bag of words and pick most freq of them. Generate tagged entities.
-        Find most important nouns for subject in case of compare nouns freq in BoW and entities.
-        :return: list of 10 most important nouns for subject search
-        """
-        b_o_w = self.create_bag_of_words()
-        most_freq_nouns = [noun for noun, _ in b_o_w.most_common(20) if nltk.pos_tag([noun])[0][1] in NOUNS]
-
-        entities = self.get_entities()
-        top_10_entities = [noun for noun, _ in nltk.FreqDist(entities).most_common(20)]
-
-        subject_nouns = [entity for entity in top_10_entities if pre.to_lowercase(entity.split()[0]) in most_freq_nouns]
-        return subject_nouns
+def topic_finder(document):
+    """
+    Main method for finding topics in text, document.
+    :param document: sample text
+    :return: list of possible topics
+    """
+    topics_list = []
+    try:
+        important_nouns = document.find_topic()
+        trigram_tagger = pickle.load(open('trained_tagger.pkl', 'rb')) # train_tagger()
+        sentences = pre.tokenize_to_sentences(pre.remove_punctuation(document.sample))
+        sentences = [pre.tokenize_to_words(sent) for sent in sentences]
+        sentences = [sentence for sentence in sentences if important_nouns[0].lower() in [word.lower() for word in sentence]]
+        tagged_sentences = [trigram_tagger.tag(sent) for sent in sentences]
+        important_nouns = document.find_topic()
+        svo_data = [get_svo(sentence, important_nouns[0].lower()) for sentence in tagged_sentences]
+        for svo in svo_data:
+            sentence = ''
+            for word in svo.get('phrase'):
+                sentence += word[0] + ' '
+            topics_list.append(sentence)
+    except IndexError:
+        if not topics_list:
+            topics_list.append("Topic not found. Need more data.")
+    return topics_list
 
 
 def main(main_window, ui):
@@ -101,6 +84,7 @@ def main(main_window, ui):
     :param main_window: application main window
     :param ui: designed ui
     """
+
     main_window.show()
     sample = Document("")
     ui.get_document().textChanged.connect(lambda: sample.change_document(ui.get_document().toPlainText()))
@@ -109,10 +93,23 @@ def main(main_window, ui):
     ui.email_btn.clicked.connect(lambda: ui.emails_list.clear())
     ui.email_btn.clicked.connect(lambda: ui.emails_list.addItems(sample.extract_emails()))
     ui.topic_btn.clicked.connect(lambda: ui.topics_list.clear())
-    ui.topic_btn.clicked.connect(lambda: ui.topics_list.addItems(sample.find_topic()))
+    ui.topic_btn.clicked.connect(lambda: ui.topics_list.addItems(topic_finder(sample)))
+
+
+def exception_hook_fun(exc_type, value, traceback):
+    """
+    Catching exception in program on global scope and print it.
+    :param exc_type: exc param
+    :param value: exc param
+    :param traceback: exc param
+    """
+    print(exc_type, value, traceback)
+    sys.excepthook(exc_type, value, traceback)
+    sys.exit(1)
 
 
 if __name__ == '__main__':
+    sys.except_hook = exception_hook_fun
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
     Ui_Mw = Ui_MainWindow()
