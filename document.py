@@ -41,7 +41,7 @@ class Document:
     def extract_phone_numbers(self):
         """Extract all phone numbers (9 digits standard) from sample document.
         :return: list of phone numbers"""
-        reg = re.compile(r"(\(\+\d{2}\)\s*\d{3}[-\.\s]??\d{3}|\d{3}[-\.\s]\d{3}[-\.\s]\d{3})")
+        reg = re.compile(r"(\+\d{2}\s*\d{3}[-\.\s]\d{3}[-\.\s]\d{3}|\d{3}[-\.\s]\d{3}[-\.\s]\d{3})")
         return reg.findall(self.text)
 
     def extract_emails(self):
@@ -84,9 +84,11 @@ class Document:
         """
         b_o_w = self.create_bag_of_words()
         most_freq_nouns = [word for word, _ in b_o_w.most_common(20) if nltk.pos_tag([word])[0][1] in NOUNS]
+        print(most_freq_nouns)
 
         entities = self.get_entities()
         top_20_entities = [noun for noun, _ in nltk.FreqDist(entities).most_common(20)]
+        print(top_20_entities)
 
         subject_nouns = [entity for entity in top_20_entities if pre.to_lowercase(entity.split()[0]) in most_freq_nouns]
         return subject_nouns

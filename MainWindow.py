@@ -82,7 +82,7 @@ class Ui_MainWindow(object):
         self.email_label.setText(_translate("MainWindow", "Extracted emails"))
         self.email_btn.setText(_translate("MainWindow", "Run extraction"))
         self.topic_label.setText(_translate("MainWindow", "Topic of document"))
-        self.topic_btn.setText(_translate("MainWindow", "Run extraction"))
+        self.topic_btn.setText(_translate("MainWindow", "Find topics"))
         self.document_label.setText(_translate("MainWindow", "Document"))
 
     def get_document(self):

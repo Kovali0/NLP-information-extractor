@@ -37,7 +37,7 @@ def get_svo(sentence, subject):
     subject_idx = next((i for i, v in enumerate(sentence) if v[0] == subject), None)
     for i in range(subject_idx, len(sentence)):
         found_action = False
-        for j, (token, tag) in enumerate(sentence[i+1:]):
+        for j, (_, tag) in enumerate(sentence[i+1:]):
             if tag in VERBS:
                 found_action = True
             if tag in NOUNS and found_action:
@@ -59,7 +59,6 @@ def topic_finder(document):
         sentences = [pre.tokenize_to_words(sent) for sent in sentences]
         sentences = [sentence for sentence in sentences if important_nouns[0].lower() in [word.lower() for word in sentence]]
         tagged_sentences = [trigram_tagger.tag(sent) for sent in sentences]
-        important_nouns = document.find_topic()
         svo_data = [get_svo(sentence, important_nouns[0]) for sentence in tagged_sentences]
         for svo in svo_data:
             sentence = ''
@@ -106,7 +105,7 @@ if __name__ == '__main__':
     sys.except_hook = exception_hook_fun
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
-    Ui_Mw = Ui_MainWindow()
-    Ui_Mw.setupUi(MainWindow)
-    main(MainWindow, Ui_Mw)
+    ui_mw = Ui_MainWindow()
+    ui_mw.setupUi(MainWindow)
+    main(MainWindow, ui_mw)
     sys.exit(app.exec_())
